@@ -1,0 +1,9 @@
+{
+   "autoAdd" : true,
+   "autoCommit" : true,
+   "repository" : "YOUR REPOSITORY URL HERE",
+   "revision" : "0",
+   "setupGitHooksPath" : ".git/hooks",
+   "setupVCSToolsPath" : "VCS",
+   "workingCopy" : "Assets/SVN"
+}
