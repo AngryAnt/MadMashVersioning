@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(RequireSystemSuccess LoadConfiguration LoadUserConfiguration SaveConfiguration SVNVersion SVNStatus SVNUnversioned SVNCommit SVNUpdate SVNCheckout SVNAdd GitBaseRevision);
+our @EXPORT = qw(RequireSystemSuccess LoadConfiguration LoadUserConfiguration SaveConfiguration SVNVersion SVNStatus SVNUnversioned SVNChanged SVNCommit SVNUpdate SVNCheckout SVNAdd GitBaseRevision);
 
 use File::Slurp;
 use JSON;
@@ -82,6 +82,16 @@ sub SVNUnversioned
 	my $workingCopy = shift;
 
 	my @unversioned = grep /^\?/, SVNStatus ($workingCopy);
+
+	return @unversioned;
+}
+
+
+sub SVNChanged
+{
+	my $workingCopy = shift;
+
+	my @unversioned = grep !/^\?/, SVNStatus ($workingCopy);
 
 	return @unversioned;
 }

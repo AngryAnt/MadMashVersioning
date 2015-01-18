@@ -2,6 +2,11 @@
 use strict;
 use warnings;
 use VCS::Tools;
+use VCS::Prompt;
+use enum qw(
+	:Button_=0 OK Cancel Yes No
+	:Buttons_=20 OK OKCancel YesNo YesNoCancel
+);
 
 my %coreConfiguration = LoadConfiguration ();
 my %userConfiguration = LoadUserConfiguration ();
@@ -10,52 +15,96 @@ my %configuration = (%coreConfiguration, %userConfiguration);
 # TODO: Need to figure out how to read the git commit message - so we can re-use it here
 my $gitCommitMessage = "Files for git commit based on " . GitBaseRevision ();
 
-# If 'autoAdd' configuration is enabled, add any unversioned files in SVN
+# If SVN holds unversioned files, then add them if 'add' is 'yes' / prompt if 'prompt' - otherwise bail
 
-my @unversioned;
-if ($configuration{"autoAdd"})
-{
-	@unversioned = SVNUnversioned ($configuration{"workingCopy"});
-	foreach (@unversioned)
-	{
-		my $file = substr ($_, 1);
-		$file =~ s/^\s+|\s+$//g;
+my $choice;
+my @unversioned = grep s/^.\s+|\s+$//g, SVNUnversioned ($configuration{"workingCopy"});
+my $unversionedString = "\t" . join ("\n\t", @unversioned);
 
-		SVNAdd ($file);
-	}
-}
-
-# Check for unversioned files in SVN - bail after listing if any are found
-
-@unversioned = SVNUnversioned ($configuration{"workingCopy"});
 if (scalar (@unversioned) > 0)
 {
-	print ("Unversioned files in SVN:\n");
-	foreach (@unversioned)
+	if ($configuration{"add"} eq "yes")
 	{
-		print ("$_");
+		$choice = Button_Yes;
 	}
-	die ("These files must be versioned / ignored or removed before committing.");
+	elsif ($configuration{"add"} eq "prompt")
+	{
+		print ("Unversioned files:\n$unversionedString\n\nPrompting.\n");
+
+		$choice = Prompt (
+			"Add files?",
+			"Would you like to add the following unversioned files to SVN?\n\n$unversionedString",
+			Buttons_YesNoCancel
+		);
+	}
+	else
+	{
+		print ("Unversioned files:\n$unversionedString\n\n");
+
+		die ("These files must be versioned / removed or ignored before performing a git commit.");
+	}
+
+	if ($choice == Button_Yes)
+	{
+		print ("Adding:\n$unversionedString\n\n");
+
+		foreach (@unversioned)
+		{
+			SVNAdd ($_);
+		}
+	}
+	elsif ($choice == Button_No)
+	{
+		print ("Skipping:\n$unversionedString\n\n");
+	}
+	else
+	{
+		die ("Commit canceled by user");
+	}
 }
 
-# If 'autoCommit' configuration is enabled, commit anything not committed in SVN
+# If SVN holds uncommitted files, then commit them if 'commit' is 'yes' / prompt if 'prompt' - otherwise bail
 
-if ($configuration{"autoCommit"})
-{
-	SVNCommit ($configuration{"workingCopy"}, $gitCommitMessage);
-}
-
-# Check that SVN is clean - bail after listing if not
-
-my @status = SVNStatus ($configuration{"workingCopy"});
+my @status = grep s/^.\s+|\s+$//g, SVNChanged ($configuration{"workingCopy"});
 if (scalar (@status) > 0)
 {
-	print ("SVN status:\n");
-	foreach (@status)
+	my $statusString = "\t" . join ("\n\t", @status);
+
+	if ($configuration{"commit"} eq "yes")
 	{
-		print ("$_");
+		$choice = Button_Yes;
 	}
-	die ("SVN must be committed and clean before performing a git commit");
+	elsif ($configuration{"commit"} eq "prompt")
+	{
+		print ("SVN status:\n$statusString\n\n");
+
+		$choice = Prompt (
+			"Commit changes?",
+			"The following files have been changed in SVN. Would you like to commit them as well?\n\n$statusString",
+			Buttons_YesNoCancel
+		);
+	}
+	else
+	{
+		print ("SVN status:\n$statusString\n\n");
+
+		die ("SVN must be committed and cleaned before performing a git commit.");
+	}
+
+	if ($choice == Button_Yes)
+	{
+		print ("Committing:\n$statusString\n\n");
+
+		SVNCommit ($configuration{"workingCopy"}, $gitCommitMessage);
+	}
+	elsif ($choice == Button_No)
+	{
+		print ("Skipping:\n$statusString\n\n");
+	}
+	else
+	{
+		die ("Commit canceled by user");
+	}
 }
 
 # Update the core configuration with the possibly updated SVN version

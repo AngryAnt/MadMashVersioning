@@ -1,6 +1,6 @@
 {
-   "autoAdd" : true,
-   "autoCommit" : true,
+   "add" : "prompt",
+   "commit" : "prompt",
    "repository" : "YOUR REPOSITORY URL HERE",
    "revision" : "0",
    "setupGitHooksPath" : ".git/hooks",
